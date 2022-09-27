@@ -65,3 +65,46 @@ void showToast(String text) {
     fontSize: 16.0
   );
 }
+
+
+class DropdownButtonExample extends StatefulWidget {
+  final Function(int baud) notifyParent;
+  const DropdownButtonExample({super.key, required this.notifyParent});
+
+  @override
+  State<DropdownButtonExample> createState() => _DropdownButtonExampleState();
+}
+
+class _DropdownButtonExampleState extends State<DropdownButtonExample> {
+
+  static const List<int> boudList = <int>[2400, 4800, 9600, 19200, 115200];
+
+  int dropdownValue = boudList.last;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<int>(
+      value: dropdownValue,
+      icon: const Icon(Icons.arrow_downward),
+      elevation: 16,
+      style: const TextStyle(color: Colors.deepPurple),
+      underline: Container(
+        height: 2,
+        color: Colors.deepPurpleAccent,
+      ),
+      onChanged: (int? value) {
+        // This is called when the user selects an item.
+        setState(() {
+          dropdownValue = value!;
+        });
+        widget.notifyParent(value!);
+      },
+      items: boudList.map<DropdownMenuItem<int>>((int value) {
+        return DropdownMenuItem<int>(
+          value: value,
+          child: Text(value.toString()),
+        );
+      }).toList(),
+    );
+  }
+}
