@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
+import 'package:logger3/serial.dart';
+import 'package:logger3/widgets/components.dart';
 import 'package:logger3/widgets/port_list_item.dart';
-import 'package:usb_serial/usb_serial.dart';
+// import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,8 +43,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   String _debug = "";
-
-
+  Serial serial = Serial();
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            PortList(),
+            PortList(serial: serial),
             Expanded(child: Text(
               '[$_debug]',
               style: Theme.of(context).textTheme.headline4,
@@ -72,22 +74,47 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _listDevices,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        tooltip: 'Start recording',
+        child: const Icon(Icons.play_arrow),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 
+  // Future<File> writeFile(Uint8List data, String name) async {
+  //   // storage permission ask
+  //   var status = await Permission.storage.status;
+  //   if (!status.isGranted) {
+  //     await Permission.storage.request();
+  //   }
+  //   // the downloads folder path
+  //   Directory tempDir = await getApplicationDocumentsDirectory();
+  //   String tempPath = tempDir.path;
+  //   var filePath = '$tempPath/$name';
+  //   // 
+
+  //   // the data
+  //   var bytes = ByteData.view(data.buffer);
+  //   final buffer = bytes.buffer;
+  //   // save the data in the path
+  //   return File(filePath).writeAsBytes(buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+  // }  
+
   void _listDevices() async {
-    List<UsbDevice> devices = await UsbSerial.listDevices();
-    print(devices);
-    setState(() {
-      _debug = "";
-      for(var d in devices) {
-        print("name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}");
-        _debug += "name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}\r\n";
-      }
-	    //_debug = "${devices.toString()}";
-    });
+
+    showToast("Chose one or several ports for recording");
+
+    // var file = await writeFile(data, 'log-example');
+    // file.close();
+
+    // List<UsbDevice> devices = await UsbSerial.listDevices();
+    // print(devices);
+    // setState(() {
+    //   _debug = "";
+    //   for(var d in devices) {
+    //     print("name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}");
+    //     _debug += "name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}\r\n";
+    //   }
+	  //   //_debug = "${devices.toString()}";
+    // });
   }
 }

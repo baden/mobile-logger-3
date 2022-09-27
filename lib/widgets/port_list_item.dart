@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:logger3/serial.dart';
 import 'package:usb_serial/usb_serial.dart';
+import 'dart:typed_data';
+import 'package:file_saver/file_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'components.dart';
 
@@ -17,7 +21,9 @@ class DataModel {
 }
 
 class PortList extends StatefulWidget {
-  PortList({Key? key}) : super(key: key);
+  const PortList({Key? key, required this.serial}) : super(key: key);
+
+  final Serial serial;
 
   @override
   State<PortList> createState() => _PortListState();
@@ -51,32 +57,117 @@ class _PortListState extends State<PortList> {
   void initState() {
     // TODO: implement initState
     super.initState();
+
+    UsbSerial.usbEventStream!.listen((UsbEvent msg) {
+      rescanPorts();
+      // print(msg);
+      // if (msg.event == UsbEvent.ACTION_USB_ATTACHED) {
+      //   // open a device now...
+      // }
+      // if (msg.event == UsbEvent.ACTION_USB_DETACHED) {
+      //   //  close device now...
+      // }
+    });
+
     rescanPorts();
   }
 
   @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    print("TODO: Disconnect all");
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      GestureDetector(
-        onTap: () {
-          print("Update (TDP)");
-          rescanPorts();
-        },
-        child: Container(
+    return Column(
+      children: [
+        Container(
+          width: MediaQuery.of(context).size.width,
+          color: Colors.white,
           padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-          child: const IconKey(Icons.update, "Update")
-        )
-      ),
-      ListView.builder(
-            scrollDirection: Axis.vertical,
-            itemCount: dataList.length,
-            shrinkWrap: true,
-            padding: const EdgeInsets.only(bottom: 16),
-            itemBuilder: (context, index) {
-              return PortItem(dataList[index], index, false);
-            }
-      ),
+          child: IconKey( Icons.update, "Update",
+            onPressed: () { rescanPorts();}
+          )
+        ),
+        RefreshIndicator(
+          onRefresh: onRefresh,
+          child: Container(
+            // color: Colors.green,
+            width: MediaQuery.of(context).size.width,
+            constraints: BoxConstraints(minHeight: 100),
+            // height: 200,
+            child: 
+            dataList.length == 0 ? Text("No devices found")/*Center(child: CircularProgressIndicator())*/ : 
+            ListView.builder(
+                  scrollDirection: Axis.vertical,
+                  itemCount: dataList.length,
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(bottom: 16),
+                  itemBuilder: (context, index) {
+                    return PortItem(dataList[index], index, false);
+                  }
+            ),
+          ),
+        ),
+        bottomPanel(),
+        statsPanel()
+          
     ]);
+  }
+
+  Widget bottomPanel()
+  {
+    return Container(
+      width: MediaQuery.of(context).size.width,
+      // color: Colors.yellow,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      child: Row(children: [
+        IconKey(Icons.plus_one, "+", onPressed: onPlus),
+        IconKey(Icons.exposure_minus_1, "-", onPressed: onMinus),
+        IconKey(Icons.save, "Save", onPressed: onSave)
+      ])
+    );
+  }
+
+  
+  Widget statsPanel()
+  {
+    return Container(
+      width: MediaQuery.of(context).size.width,
+      // color: Colors.yellow,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      child: Row(children: [
+        Text("Log: ${widget.serial.logDataLines}"),
+      ])
+    );
+  }
+
+  void onSave() async {
+    // Look good example
+    // https://github.com/aponduet/allshare/blob/6d35ee2c216588662d130b4ab81b14f515abed76/allshare/lib/view/receive_display/image.dart
+
+    Uint8List data = Uint8List.fromList([48, 49, 50, 13, 10]);
+    final now = DateTime.now();
+    final String fileName = "Log3_${now.year}_${now.month}_${now.day}-${now.hour}_${now.minute}";
+    await FileSaver.instance.saveAs(fileName, data, "txt", MimeType.TEXT);
+  }
+
+  Future<void> onRefresh() async
+  {
+    print("OnRefresh (TDP)");
+    rescanPorts();
+  }
+
+  void onPlus() {
+    setState(() {
+      widget.serial.onPlus("foo");
+    });
+  }
+
+  void onMinus() {
+    widget.serial.onMinus("foo");
   }
 }
 
