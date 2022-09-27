@@ -66,25 +66,18 @@ void showToast(String text) {
   );
 }
 
+const List<int> boudList = <int>[2400, 4800, 9600, 19200, 115200];
 
-class DropdownButtonExample extends StatefulWidget {
+class DropDown extends StatelessWidget {
+  final int baud;
   final Function(int baud) notifyParent;
-  const DropdownButtonExample({super.key, required this.notifyParent});
 
-  @override
-  State<DropdownButtonExample> createState() => _DropdownButtonExampleState();
-}
-
-class _DropdownButtonExampleState extends State<DropdownButtonExample> {
-
-  static const List<int> boudList = <int>[2400, 4800, 9600, 19200, 115200];
-
-  int dropdownValue = boudList.last;
+  const DropDown({super.key, required this.baud, required this.notifyParent });
 
   @override
   Widget build(BuildContext context) {
     return DropdownButton<int>(
-      value: dropdownValue,
+      value: baud,
       icon: const Icon(Icons.arrow_downward),
       elevation: 16,
       style: const TextStyle(color: Colors.deepPurple),
@@ -94,10 +87,7 @@ class _DropdownButtonExampleState extends State<DropdownButtonExample> {
       ),
       onChanged: (int? value) {
         // This is called when the user selects an item.
-        setState(() {
-          dropdownValue = value!;
-        });
-        widget.notifyParent(value!);
+        notifyParent(value!);
       },
       items: boudList.map<DropdownMenuItem<int>>((int value) {
         return DropdownMenuItem<int>(
@@ -108,3 +98,48 @@ class _DropdownButtonExampleState extends State<DropdownButtonExample> {
     );
   }
 }
+
+
+// class DropdownButtonExample extends StatefulWidget {
+//   final int baud;
+//   final Function(int baud) notifyParent;
+//   const DropdownButtonExample({super.key, required this.baud, required this.notifyParent});
+
+//   @override
+//   State<DropdownButtonExample> createState() => _DropdownButtonExampleState();
+// }
+
+// class _DropdownButtonExampleState extends State<DropdownButtonExample> {
+
+//   static const List<int> boudList = <int>[2400, 4800, 9600, 19200, 115200];
+
+//   // int dropdownValue = boudList.last;
+//   // int dropdownValue = widget.baud;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return DropdownButton<int>(
+//       value: dropdownValue,
+//       icon: const Icon(Icons.arrow_downward),
+//       elevation: 16,
+//       style: const TextStyle(color: Colors.deepPurple),
+//       underline: Container(
+//         height: 2,
+//         color: Colors.deepPurpleAccent,
+//       ),
+//       onChanged: (int? value) {
+//         // This is called when the user selects an item.
+//         setState(() {
+//           dropdownValue = value!;
+//         });
+//         widget.notifyParent(value!);
+//       },
+//       items: boudList.map<DropdownMenuItem<int>>((int value) {
+//         return DropdownMenuItem<int>(
+//           value: value,
+//           child: Text(value.toString()),
+//         );
+//       }).toList(),
+//     );
+//   }
+// }

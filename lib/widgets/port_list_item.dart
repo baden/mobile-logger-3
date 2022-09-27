@@ -1,28 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger3/serial.dart';
 import 'package:usb_serial/transaction.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
-// import 'package:permission_handler/permission_handler.dart';
 
 import 'components.dart';
 
 class DataModel {
-  String name;
-  String manuf;
   UsbDevice device;
   bool isChecked;
+  int baud;
+
+  String status = "Idle";
+  StreamSubscription<String>? _subscription;
+  Transaction<String>? _transaction;
+  UsbPort? _port;
+
 
   DataModel({
-    required this.name,
-    required this.manuf,
     required this.device,
-    this.isChecked = false
+    this.isChecked = false,
+    this.baud = 115200
   });
+
+
 }
 
 class PortList extends StatefulWidget {
@@ -32,19 +36,29 @@ class PortList extends StatefulWidget {
 
   @override
   State<PortList> createState() => _PortListState();
-
 }
 
 class _PortListState extends State<PortList> {
 
   List<DataModel> dataList = [];
 
+  // TODO: Temporrary
+  // List<Widget> _ports = [];
+  List<Widget> _serialData = [];
+  // StreamSubscription<String>? _subscription;
+  // Transaction<String>? _transaction;
+  // UsbPort? _port;
+  // UsbDevice? _device;
+
   void rescanPorts() async {
-    // print("Rescanin ports");
+    print("Rescanin ports");
     setState(() {
-      // dataList.clear();
-      // TODO: Disconnect from all ports? No? Only for old.
-      _ports.clear();
+      for(var dl in dataList) {
+        dl.device?.port?.close();
+      }
+      dataList.clear();
+    //   // TODO: Disconnect from all ports? No? Only for old.
+    //   //_ports.clear();
     });
 
     List<UsbDevice> devices = await UsbSerial.listDevices();
@@ -54,8 +68,10 @@ class _PortListState extends State<PortList> {
       for(var d in devices) {
         // print("name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}");
         // _debug += "name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}\r\n";
-        // dataList.add(DataModel(name: d.deviceName, manuf: d.manufacturerName??'-', device: d));
-        _ports.add(_portListItem(DataModel(name: d.deviceName, manuf: d.manufacturerName??'-', device: d)));
+        dataList.add(DataModel(device: d));
+        // dataList.firstWhere((e) => e.device.deviceName == d.deviceName);
+        
+        // _ports.add(_portListItem(DataModel(name: d.deviceName, manuf: d.manufacturerName??'-', device: d)));
       }
     });
 
@@ -107,18 +123,19 @@ class _PortListState extends State<PortList> {
             constraints: BoxConstraints(minHeight: 100),
             // height: 200,
             child: 
-            /*dataList*/_ports.length == 0 ? Text("No devices found")/*Center(child: CircularProgressIndicator())*/ : 
-            /*ListView.builder(
+            dataList/*_ports*/.length == 0 ? Text("No devices found")/*Center(child: CircularProgressIndicator())*/ : 
+            ListView.builder(
                   scrollDirection: Axis.vertical,
                   itemCount: dataList.length,
                   shrinkWrap: true,
                   padding: const EdgeInsets.only(bottom: 16),
                   itemBuilder: (context, index) {
-                    return PortItem(dataList[index], index, false);
+                    // return PortItem(dataList[index], index, false);
+                    return _portListItem(dataList[index]);
                   }
             ),
-            */
-            Column(children: _ports)
+            
+            /*Column(children: _ports)*/
           ),
         ),
         bottomPanel(),
@@ -149,7 +166,7 @@ class _PortListState extends State<PortList> {
       // color: Colors.yellow,
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
       child: Row(children: [
-        Text("Log: ${widget.serial.logDataLines} | Status: ${_status}"),
+        Text("Log: ${widget.serial.logDataLines}"),
       ])
     );
   }
@@ -180,60 +197,53 @@ class _PortListState extends State<PortList> {
     widget.serial.onMinus("foo");
   }
 
-  // TODO: Temporrary
-  List<Widget> _ports = [];
-  List<Widget> _serialData = [];
-  StreamSubscription<String>? _subscription;
-  Transaction<String>? _transaction;
-  UsbPort? _port;
-  UsbDevice? _device;
-  String _status = "Idle";
 
-  Future<bool> _connectTo(device) async {
-    _serialData.clear();
+  Future<bool> _connectTo(DataModel dm) async {
+    // dm._serialData.clear();
 
-    if (_subscription != null) {
-      _subscription!.cancel();
-      _subscription = null;
+    if (dm._subscription != null) {
+      dm._subscription!.cancel();
+      dm._subscription = null;
     }
 
-    if (_transaction != null) {
-      _transaction!.dispose();
-      _transaction = null;
+    if (dm._transaction != null) {
+      dm._transaction!.dispose();
+      dm._transaction = null;
     }
 
-    if (_port != null) {
-      _port!.close();
-      _port = null;
+    if (dm._port != null) {
+      dm._port!.close();
+      dm._port = null;
     }
 
-    if (device == null) {
-      _device = null;
+    // if (dm.device == null) {
+    //   dm.device = null;
+    //   setState(() {
+    //     dm.status = "Disconnected";
+    //   });
+    //   return true;
+    // }
+
+    dm._port = await dm.device.create();
+    if (await (dm._port!.open()) != true) {
       setState(() {
-        _status = "Disconnected";
-      });
-      return true;
-    }
-
-    _port = await device.create();
-    if (await (_port!.open()) != true) {
-      setState(() {
-        _status = "Failed to open port";
+        dm.status = "Failed to open port";
       });
       return false;
     }
-    _device = device;
+    // dm.device = device;
 
-    await _port!.setDTR(false);
-    await _port!.setRTS(false);
-    await _port!.setPortParameters(
-        115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
+    await dm._port!.setDTR(false);
+    await dm._port!.setRTS(false);
+    await dm._port!.setPortParameters(
+        dm.baud, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
 
-    _transaction = Transaction.stringTerminated(
-        _port!.inputStream as Stream<Uint8List>, Uint8List.fromList([13, 10]));
+    dm._transaction = Transaction.stringTerminated(
+        dm._port!.inputStream as Stream<Uint8List>, Uint8List.fromList([13, 10]));
 
-    _subscription = _transaction!.stream.listen((String line) {
+    dm._subscription = dm._transaction!.stream.listen((String line) {
       setState(() {
+        print("Data:${line}");
         _serialData.add(Text(line));
         if (_serialData.length > 20) {
           _serialData.removeAt(0);
@@ -242,10 +252,15 @@ class _PortListState extends State<PortList> {
     });
 
     setState(() {
-      _status = "Connected";
+      dm.status = "Connected";
     });
     return true;
   }
+
+  Future<bool> _disconnectTo(DataModel dm) async {
+    return true;
+  }
+
 
   Widget _portListItem(DataModel model)
   {
@@ -253,7 +268,7 @@ class _PortListState extends State<PortList> {
     final String manuf = model.device.manufacturerName??'-';
 
     return GestureDetector(
-      onTap: (){
+      onTap: () {
         print("Tap");
         showToast("Port is used for log recording...(TDP)");
         //model.device;
@@ -273,19 +288,36 @@ class _PortListState extends State<PortList> {
                 value: model.isChecked,
                 onChanged: (bool? value) {
                   print("TDP($value)");
-                  // setState(() {
+                  setState(() {
+                    model.isChecked = value!;
+                    // _ports[0].isChecked = value!;
                   //   isChecked = value!;
-                  // });
+                  });
                 },
               ),
 
               // Text("$pos:"),
               
 
-              DropdownButtonExample(notifyParent: (baud) { _onSetBaudRate(model.device, baud); }),
+              // DropdownButtonExample(notifyParent: (baud) { /*_onSetBaudRate(model.device, baud);*/ model.baud = baud; }),
+              DropDown(
+                baud: model.baud,
+                notifyParent: (baud) {
+                  setState(() {
+                    model.baud = baud;
+                  });
+                  /*_onSetBaudRate(model.device, baud);*/
+                }
+              ),
+
+              Expanded(child: Text('${model.status}')),
 
               GestureDetector(
-                onTap: () => _onConnectTap(model.device),
+                onTap: () {
+                  print("_onConnectTap ${model.device.deviceName}");
+                  _connectTo(model);
+                  // _onConnectTap(model.device);
+                },
                 child: Icon(Icons.play_arrow_rounded, size: 36),
               )
             ]
@@ -295,62 +327,10 @@ class _PortListState extends State<PortList> {
     );
   }
   
-  void _onConnectTap(UsbDevice device) {
-    print("_onConnectTap ${device.deviceName}");
-  }
+  // void _onConnectTap(UsbDevice device) {
+  //   print("_onConnectTap ${device.deviceName}");
+  // }
   
-  void _onSetBaudRate(UsbDevice device, int baud) {
-    print("_onSetBaudRate ${device.deviceName} <= $baud");
-  }
-
-  
-
 
 }
 
-
-
-
-class PortItem extends StatelessWidget {
-  final DataModel model;
-  final int pos;
-  final bool isChecked;
-
-  const PortItem(this.model, this.pos, this.isChecked, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: (){
-        print("Tap");
-        showToast("Port is used for log recording...(TDP)");
-        //model.device;
-      },
-      child: Container(
-        height: 40,
-        color: Colors.amber[600],
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        child: Row(
-          children: [
-
-            Checkbox(
-              checkColor: Colors.white,
-              // fillColor: MaterialStateProperty.resolveWith(getColor),
-              value: isChecked,
-              onChanged: (bool? value) {
-                print("TDP($value)");
-                // setState(() {
-                //   isChecked = value!;
-                // });
-              },
-            ),
-
-            Text("$pos:"),
-            Text("${model.name}"),
-            Text("${model.manuf}"),
-          ]
-        ),
-      )
-    );
-  }
-}
