@@ -61,10 +61,12 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             PortList(),
-            Text(
+            Expanded(child: Text(
               '[$_debug]',
               style: Theme.of(context).textTheme.headline4,
-            ),
+            )
+            )
+            
           ],
         
       ),
