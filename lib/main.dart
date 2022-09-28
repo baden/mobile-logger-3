@@ -1,8 +1,15 @@
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:logger3/colors.dart';
 import 'package:logger3/serial.dart';
 import 'package:logger3/widgets/components.dart';
 import 'package:logger3/widgets/port_list_item.dart';
+import 'package:file_saver/file_saver.dart';
+// import 'package:xterm/xterm.dart';
+
 // import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -41,9 +48,20 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+class LogLine {
+  LogLine({required this.index, required this.logLine});
+
+  int index;
+  String logLine;
+}
+
 class _MyHomePageState extends State<MyHomePage> {
-  String _debug = "";
+  // String _debug = "";
   Serial serial = Serial();
+
+  List<LogLine> logData = [];
+
+  // Terminal terminal = Terminal(maxLines: 100);
 
   @override
   Widget build(BuildContext context) {
@@ -62,21 +80,47 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            PortList(serial: serial),
-            Expanded(child: Text(
+            PortList(serial: serial, onLineData: (index, line) {
+              print("TODO: [$index] $line");
+              setState(() {
+                // _debug += "TODO: $deviceName: [$line]\r\n";
+                logData.add(LogLine(index: index, logLine: line));
+              });
+            }),
+            Expanded(child: /*TerminalView(terminal)*/
+            
+            /*Text(
               '[$_debug]',
-              style: Theme.of(context).textTheme.headline4,
-            )
-            )
+              // style: Theme.of(context).textTheme.headline4,
+            )*/
+
+            Scrollbar(
+              child: ListView.builder(
+                    scrollDirection: Axis.vertical,
+                    itemCount: logData.length,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemBuilder: (context, index) {
+                      // return PortItem(dataList[index], index, false);
+                      return Container(
+                        // foregroundDecoration: portColor(index),
+                        child: Text(logData[index].logLine, style: TextStyle(color: portColor(logData[index].index), fontWeight: FontWeight.bold))
+                      );
+                    }
+              ),
+            ),
+
+            ),
+            bottomPanel()
             
           ],
         
       ),
-      floatingActionButton: FloatingActionButton(
+      /*floatingActionButton: FloatingActionButton(
         onPressed: _listDevices,
         tooltip: 'Start recording',
-        child: const Icon(Icons.play_arrow),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        child: const Icon(Icons.save_as_rounded),
+      ),*/ // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 
@@ -99,9 +143,24 @@ class _MyHomePageState extends State<MyHomePage> {
   //   return File(filePath).writeAsBytes(buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
   // }  
 
+  Widget bottomPanel()
+  {
+    return Container(
+      width: MediaQuery.of(context).size.width,
+      // color: Colors.yellow,
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      child: Row(children: [
+        IconKey(Icons.remove, "Clear", onPressed: _onClear),
+        Expanded(child: Text('')),
+        IconKey(Icons.save, "Save", onPressed: _onSave)
+      ])
+    );
+  }
+
   void _listDevices() async {
 
     showToast("Chose one or several ports for recording");
+    // terminal.write('Hello, world!\r\n');
 
     // var file = await writeFile(data, 'log-example');
     // file.close();
@@ -116,5 +175,56 @@ class _MyHomePageState extends State<MyHomePage> {
     //   }
 	  //   //_debug = "${devices.toString()}";
     // });
+  }
+
+  void _onClear(_) {
+
+    showDialog<String>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: const Text('Are you sure?'),
+          content: const Text('Do you realy want clear log?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'Cancel'),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  logData.clear();  
+                });
+                Navigator.pop(context, 'OK'); 
+              },
+              child: const Text('Yes'),
+            ),
+          ],
+        ),
+      );
+
+    
+  }
+
+  void _onSave(_) async {
+    // Look good example
+    // https://github.com/aponduet/allshare/blob/6d35ee2c216588662d130b4ab81b14f515abed76/allshare/lib/view/receive_display/image.dart
+
+    String fileData;
+
+    
+    final now = DateTime.now();
+
+    /*
+    Stream.fromIterable(
+      utf8.encode(text).map((elements) => Uint8List.fromList([elements])).toList();
+
+    List<int> di = utf8.encode(Stream.fromIterable(logData.map((e) => e.logLine)));
+    */
+    // Concat strings
+    final List<int> codeUnits = logData.map(((e) => "[${e.index}]: ${e.logLine}\r\n")).join().codeUnits;
+    Uint8List data = Uint8List.fromList(codeUnits);
+    final String fileName = "Log3_${now.year}_${now.month}_${now.day}-${now.hour}_${now.minute}";
+    await FileSaver.instance.saveAs(fileName, data, "txt", MimeType.TEXT);
+    
   }
 }

@@ -9,7 +9,8 @@ class IconKey extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+  // final VoidCallback onPressed;
+  final Function(BuildContext context) onPressed;
 
 
   final ButtonStyle flatButtonStyle = TextButton.styleFrom(
@@ -39,7 +40,7 @@ class IconKey extends StatelessWidget {
 
     return /*TextButton*/ElevatedButton(
       style: style/*flatButtonStyle*/,
-      onPressed: onPressed,
+      onPressed: () { onPressed(context); },
       child: Row(
         children: [
         Icon(

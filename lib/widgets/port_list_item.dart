@@ -5,11 +5,12 @@ import 'package:logger3/serial.dart';
 import 'package:usb_serial/transaction.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'dart:typed_data';
-import 'package:file_saver/file_saver.dart';
 
+import '../colors.dart';
 import 'components.dart';
 
 class DataModel {
+  int index;
   UsbDevice device;
   bool isChecked;
   int baud;
@@ -21,18 +22,19 @@ class DataModel {
 
 
   DataModel({
+    required this.index,
     required this.device,
     this.isChecked = false,
     this.baud = 115200
   });
-
-
 }
 
+
 class PortList extends StatefulWidget {
-  const PortList({Key? key, required this.serial}) : super(key: key);
+  const PortList({Key? key, required this.serial, required this.onLineData}) : super(key: key);
 
   final Serial serial;
+  final Function(int index, String line) onLineData;
 
   @override
   State<PortList> createState() => _PortListState();
@@ -44,11 +46,13 @@ class _PortListState extends State<PortList> {
 
   // TODO: Temporrary
   // List<Widget> _ports = [];
-  List<Widget> _serialData = [];
+  // List<Widget> _serialData = [];
   // StreamSubscription<String>? _subscription;
   // Transaction<String>? _transaction;
   // UsbPort? _port;
   // UsbDevice? _device;
+
+  bool hidePorts = false;
 
   void rescanPorts() async {
     print("Rescanin ports");
@@ -65,14 +69,17 @@ class _PortListState extends State<PortList> {
 
     setState(() {
       // dataList.clear();
-      for(var d in devices) {
+      devices.asMap().forEach((index, d) {
+        dataList.add(DataModel(device: d, index: index));
+      });
+      /*for(var d in devices) {
         // print("name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}");
         // _debug += "name: ${d.deviceName}  manuf: ${d.manufacturerName??'-'}\r\n";
-        dataList.add(DataModel(device: d));
+        dataList.add(DataModel(device: d, color: Colors.amber));
         // dataList.firstWhere((e) => e.device.deviceName == d.deviceName);
         
         // _ports.add(_portListItem(DataModel(name: d.deviceName, manuf: d.manufacturerName??'-', device: d)));
-      }
+      }*/
     });
 
   }
@@ -110,12 +117,20 @@ class _PortListState extends State<PortList> {
         Container(
           width: MediaQuery.of(context).size.width,
           color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-          child: IconKey( Icons.update, "Update",
-            onPressed: () { rescanPorts();}
-          )
+          padding: const EdgeInsets.fromLTRB(12, 1, 12, 1),
+          child: Row(children: [
+            IconKey( Icons.update, "Update",
+              onPressed: (_) { rescanPorts();}
+            ),
+            Expanded(child: Text("")),
+            IconKey( Icons.remove_red_eye_rounded, "", onPressed: (_) {
+              setState(() {
+                hidePorts = !hidePorts;
+              });
+            })
+          ])
         ),
-        RefreshIndicator(
+        hidePorts ? Text("") : RefreshIndicator(
           onRefresh: onRefresh,
           child: Container(
             // color: Colors.green,
@@ -137,49 +152,13 @@ class _PortListState extends State<PortList> {
             
             /*Column(children: _ports)*/
           ),
-        ),
-        bottomPanel(),
-        statsPanel()
+        )
           
     ]);
   }
 
-  Widget bottomPanel()
-  {
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      // color: Colors.yellow,
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-      child: Row(children: [
-        IconKey(Icons.plus_one, "+", onPressed: onPlus),
-        IconKey(Icons.exposure_minus_1, "-", onPressed: onMinus),
-        IconKey(Icons.save, "Save", onPressed: onSave)
-      ])
-    );
-  }
 
   
-  Widget statsPanel()
-  {
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      // color: Colors.yellow,
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-      child: Row(children: [
-        Text("Log: ${widget.serial.logDataLines}"),
-      ])
-    );
-  }
-
-  void onSave() async {
-    // Look good example
-    // https://github.com/aponduet/allshare/blob/6d35ee2c216588662d130b4ab81b14f515abed76/allshare/lib/view/receive_display/image.dart
-
-    Uint8List data = Uint8List.fromList([48, 49, 50, 13, 10]);
-    final now = DateTime.now();
-    final String fileName = "Log3_${now.year}_${now.month}_${now.day}-${now.hour}_${now.minute}";
-    await FileSaver.instance.saveAs(fileName, data, "txt", MimeType.TEXT);
-  }
 
   Future<void> onRefresh() async
   {
@@ -244,10 +223,11 @@ class _PortListState extends State<PortList> {
     dm._subscription = dm._transaction!.stream.listen((String line) {
       setState(() {
         print("Data:${line}");
-        _serialData.add(Text(line));
-        if (_serialData.length > 20) {
-          _serialData.removeAt(0);
-        }
+        widget.onLineData(dm.index, line);
+        // _serialData.add(Text(line));
+        // if (_serialData.length > 20) {
+        //   _serialData.removeAt(0);
+        // }
       });
     });
 
@@ -267,22 +247,17 @@ class _PortListState extends State<PortList> {
     final String name = model.device.deviceName;
     final String manuf = model.device.manufacturerName??'-';
 
-    return GestureDetector(
-      onTap: () {
-        print("Tap");
-        showToast("Port is used for log recording...(TDP)");
-        //model.device;
-      },
-      child: Container(
-        height: 80,
-        color: Colors.amber[600],
+    return Container(
+        height: 68,
+        // color: model.color, //Colors.amber[600],
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
         child: Column(
           children: [
-            Text("$name/$manuf"),
+            Text("$name ($manuf)", textScaleFactor: 0.9,),
             Row(
               children: [
-              Checkbox(
+                Container(color: portColor(model.index), width: 32, height: 32, margin: const EdgeInsets.fromLTRB(0, 0, 20, 0))
+              /*Checkbox(
                 checkColor: Colors.white,
                 // fillColor: MaterialStateProperty.resolveWith(getColor),
                 value: model.isChecked,
@@ -294,7 +269,7 @@ class _PortListState extends State<PortList> {
                   //   isChecked = value!;
                   });
                 },
-              ),
+              )*/,
 
               // Text("$pos:"),
               
@@ -323,8 +298,8 @@ class _PortListState extends State<PortList> {
             ]
           ),
         ]),
-      )
-    );
+      );
+    
   }
   
   // void _onConnectTap(UsbDevice device) {
